@@ -7,36 +7,29 @@ class MoviesController < ApplicationController
     # will render app/views/movies/show.<extension> by default
   end
 
-  def index #index.html
-    #@movies = Movie.all
-    ######added
-    @all_ratings = Movie.all_ratings #
-    @ratings_to_show = params[:ratings] || {} 
-    ratings_list = @ratings_to_show
-    session[:ratings]= @ratings_to_show #part3
-    if @ratings_to_show == {}
-      ratings_list = Hash[@all_ratings.map {|x| [x, 1]}] #assign any value
+  def index
+    sort = params[:sort] || session[:sort]
+    case sort
+    when 'title'
+      ordering,@title_header = {:title => :asc}, 'hilite'
+    when 'release_date'
+      ordering,@date_header = {:release_date => :asc}, 'hilite'
+    end
+    @all_ratings = Movie.all_ratings
+    @selected_ratings = params[:ratings] || session[:ratings] || {}
+    
+    if @selected_ratings == {}
+      @selected_ratings = Hash[@all_ratings.map {|rating| [rating, rating]}]
     end
     
-    #update movies filtered by ratings
-    
-    @movies = Movie.with_ratings(ratings_list.keys)
-    ######
-    @clicked_header = params[:clicked_header] || "" #session[:clicked_header] || ""
-    session[:clicked_header] = @clicked_header #part3
-    #sort movies in order
-    if @clicked_header == "title_header"
-      @movies = @movies.order(:title)
+    if params[:sort] != session[:sort] or params[:ratings] != session[:ratings]
+      session[:sort] = sort
+      session[:ratings] = @selected_ratings
+      redirect_to :sort => sort, :ratings => @selected_ratings and return
     end
-    if @clicked_header == "release_date_header"
-      @movies = @movies.order(:release_date)
-    end
+    @movies = Movie.where(rating: @selected_ratings.keys).order(ordering)
   end
-
-  def new
-    # default: render 'new' template
-  end
-
+  
   def create
     @movie = Movie.create!(movie_params)
     flash[:notice] = "#{@movie.title} was successfully created."
